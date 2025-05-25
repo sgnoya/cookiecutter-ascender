@@ -1,23 +1,3 @@
-.PHONY: black-check
-black-check:
-	uv run black --check src tests
-
-.PHONY: black
-black:
-	uv run black src tests
-
-.PHONY: flake8
-flake8:
-	uv run flake8 src tests
-
-.PHONY: isort-check
-isort-check:
-	uv run isort --check-only src tests
-
-.PHONY: isort
-isort:
-	uv run isort src tests
-
 .PHONY: mdformat
 mdformat:
 	uv run mdformat *.md
@@ -36,17 +16,13 @@ test:
 
 .PHONY: format
 format:
-	$(MAKE) black
-	$(MAKE) isort
+	uv run ruff format src
 	$(MAKE) mdformat
 
 .PHONY: lint
 lint:
-	$(MAKE) black-check
-	$(MAKE) isort-check
+	uv run ruff check src
 	$(MAKE) mdformat-check
-	$(MAKE) flake8
-	$(MAKE) mypy
 
 .PHONY: test-all
 test-all:
