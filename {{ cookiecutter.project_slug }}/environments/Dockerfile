@@ -8,7 +8,8 @@ ARG UID=1000
 ARG GID=1000
 ARG PYTHON_VERSION=3.8
 ARG APPLICATION_DIRECTORY=/home/${USER_NAME}/${PROJECT_NAME}
-ARG RUN_POETRY_INSTALL_AT_BUILD_TIME="false"
+ARG RUN_UV_INSTALL_AT_BUILD_TIME="false"
+
 
 ENV DEBIAN_FRONTEND="noninteractive" \
     LC_ALL="C.UTF-8" \
@@ -30,7 +31,7 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTH
     # `requests` needs to be upgraded to avoid RequestsDependencyWarning
     # ref: https://stackoverflow.com/questions/56155627/requestsdependencywarning-urllib3-1-25-2-or-chardet-3-0-4-doesnt-match-a-s
     && python3 -m pip install --upgrade pip setuptools requests \
-    && python3 -m pip install poetry
+    && python3 -m pip install uv
 
 # Add user. Without this, following process is executed as admin. 
 RUN groupadd -g ${GID} ${GROUP_NAME} \
@@ -39,8 +40,8 @@ RUN groupadd -g ${GID} ${GROUP_NAME} \
 USER ${USER_NAME}
 WORKDIR ${APPLICATION_DIRECTORY}
 
-# If ${RUN_POETRY_INSTALL_AT_BUILD_TIME} = "true", install Python package by Poetry and move .venv under ${HOME}.
+# If ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true", install Python package by uv and move .venv under ${HOME}.
 # This process is for CI (GitHub Actions). To prevent overwrite by volume of docker compose, .venv is moved under ${HOME}.
-COPY --chown=${UID}:${GID} pyproject.toml poetry.lock poetry.toml ./
-RUN test ${RUN_POETRY_INSTALL_AT_BUILD_TIME} = "true" && poetry install || echo "skip to run poetry install."
-RUN test ${RUN_POETRY_INSTALL_AT_BUILD_TIME} = "true" && mv ${APPLICATION_DIRECTORY}/.venv ${HOME}/.venv || echo "skip to move .venv."
+COPY --chown=${UID}:${GID} pyproject.toml uv.lock ./
+RUN test ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true" && uv sync || echo "skip to run uv install."
+RUN test ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true" && mv ${APPLICATION_DIRECTORY}/.venv ${HOME}/.venv || echo "skip to move .venv."
