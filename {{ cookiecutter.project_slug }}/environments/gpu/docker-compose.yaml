@@ -1,13 +1,12 @@
-version: "3.8"
-
+name: {{ cookiecutter.project_slug }}
 services:
-  core:
+  {{ cookiecutter.project_slug }}:
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
     build:
       args:
-        - BASE_IMAGE=nvidia/cuda:12.9.0-devel-ubuntu24.04
+        - BASE_IMAGE=nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04
         - PYTHON_VERSION=3.13
         - UID=${HOST_UID-1000}
         - GID=${HOST_GID-1000}

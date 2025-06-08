@@ -3,7 +3,7 @@ FROM ${BASE_IMAGE}
 
 ARG PROJECT_NAME={{ cookiecutter.project_slug }}
 ARG USER_NAME=user
-ARG GROUP_NAME=users
+ARG GROUP_NAME=usergroup
 ARG UID=1000
 ARG GID=1000
 ARG PYTHON_VERSION=3.13
@@ -16,32 +16,27 @@ ENV DEBIAN_FRONTEND="noninteractive" \
     LANG="C.UTF-8" \
     PYTHONPATH=${APPLICATION_DIRECTORY}
 
-# Following is needed to install python 3.7
-RUN apt update && apt install --no-install-recommends -y software-properties-common 
-RUN add-apt-repository ppa:deadsnakes/ppa
-
 RUN apt update && apt install --no-install-recommends -y \
-    git curl make ssh openssh-client \
-    python${PYTHON_VERSION} python3-pip python-is-python3
+    git curl make ssh openssh-client
 
-# Following is needed to swtich default python3 version
-# For detail, please check following link https://unix.stackexchange.com/questions/410579/change-the-python3-default-version-in-ubuntu
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
-    # `requests` needs to be upgraded to avoid RequestsDependencyWarning
-    # ref: https://stackoverflow.com/questions/56155627/requestsdependencywarning-urllib3-1-25-2-or-chardet-3-0-4-doesnt-match-a-s
-    && python3 -m pip install --upgrade pip setuptools requests \
-    && python3 -m pip install uv
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Add user. Without this, following process is executed as admin. 
-RUN groupadd -g ${GID} ${GROUP_NAME} \
-    && useradd -ms /bin/sh -u ${UID} -g ${GID} ${USER_NAME}
+
+# Add user. Without this, following process is executed as admin.
+# If GID and UID are already exist, change the existing user and group names to ${USER_NAME} and ${GROUP_NAME}.
+# If ${USER_NAME} and ${GROUP_NAME} are already exist, change their UID and GID to ${UID} and ${GID}.
+# If ${USER_NAME} and ${GROUP_NAME} are not exist, create new user and group with ${USER_NAME} and ${GROUP_NAME}.
+# If ${USER_NAME} and ${GROUP_NAME} are not set, use default values "user" and "usergroup".
+# If ${UID} and ${GID} are not set, use default values 1000.
+RUN groupadd -g ${GID} ${GROUP_NAME} || groupmod -n ${GROUP_NAME} $(getent group ${GID} | cut -d: -f1) \
+    && useradd -ms /bin/sh -u ${UID} -g ${GID} ${USER_NAME} || usermod -l ${USER_NAME} $(getent passwd ${UID} | cut -d: -f1)
 
 USER ${USER_NAME}
 WORKDIR ${APPLICATION_DIRECTORY}
 
 # If ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true", install Python package by uv and move .venv under ${HOME}.
 # This process is for CI (GitHub Actions). To prevent overwrite by volume of docker compose, .venv is moved under ${HOME}.
-COPY --chown=${UID}:${GID} pyproject.toml uv.lock ./
-RUN test ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true" && uv sync || echo "skip to run uv install."
+COPY --chown=${UID}:${GID} pyproject.toml uv.lock ${APPLICATION_DIRECTORY}
+RUN test ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true" && uv sync --locked || echo "skip to run uv install."
 RUN test ${RUN_UV_INSTALL_AT_BUILD_TIME} = "true" && mv ${APPLICATION_DIRECTORY}/.venv ${HOME}/.venv || echo "skip to move .venv."
